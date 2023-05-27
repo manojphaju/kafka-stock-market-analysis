@@ -1,0 +1,72 @@
+Kafka-Real-Time Stock Stream Project
+	Create EC2 instance on AWS
+	Check if instance is running or not
+	Connect with ssh
+	Follow the steps with chmod register and navigate to folder to connect EC2 instance locally.
+	From terminal, ssh -i "Kafka-stock-market-key-pair.pem" ec2-user@ec2-107-21-83-13.compute-1.amazonaws.com
+	As EC2 instance is connected from local terminal, run below commands:
+•	wget https://archive.apache.org/dist/kafka/3.3.1/kafka_2.13-3.3.1.tgz to download apache kafka
+•	ls
+•	tar -xvf kafka-3.3.1.tgz
+	Install java in EC2 instance
+•	java -version
+•	sudo yum install java-1.8.0-openjdk
+•	java -version
+	now we need to start kafka server and zookeeper server. So, navigate to uncompressed kafka
+	cd kafka-3.4.0-src/
+	Start Zoo-keeper:
+	-------------------------------
+	bin/zookeeper-server-start.sh config/zookeeper.properties , zookeeper starts running 
+
+NOTE: while running kafka server if memory issue encoure, run this: 
+
+kafka-server-startup.sh and zookeeper-server-start.sh as export KAFKA_HEAP_OPTS="-Xmx256M -Xms128M" and started zookeeper and kafka servers both worked fine
+
+Running kafka server
+	navigate to the folder to connect to EC2 instance and ssh -i "Kafka-stock-market-key-pair.pem" ec2-user@ec2-107-21-83-13.compute-1.amazonaws.com
+	first increase the memory for kafka server so, export KAFKA_HEAP_OPTS="-Xmx256M -Xms128M". 
+	bin/kafka-server-start.sh config/server.properties
+	NOTE: kafka server is connected to local server but we need to connect it with EC2 public IP. So, we need to change ADVERTISED_LISTENERS to public ip of the EC2 instance
+	sudo nano config/server.properties , ctlr + x to save and hit y
+	Now run both zookeeper and kafka server
+	We need to allow the request to inbound rules. So, from EC2 instance, click Security tab > security group > edit inbound rules > add rule > Type : All Trafic > Source : My IP / Anywhere IPV4
+Creating Topic
+	Open new terminal window
+	Connect to EC2 instance 
+	bin/kafka-topics.sh --create --topic demo_test --bootstrap-server 3.80.93.162:9092 --replication-factor 1 --partitions 1 
+Start producer
+	open new window terminal
+	connect to EC2 instance 
+	bin/kafka-console-producer.sh --topic demo_test --bootstrap-server 3.80.93.162:9092
+Start Consumer
+	open new window terminal
+	connect to EC2 instance
+	bin/kafka-console-consumer.sh --topic demo_test --bootstrap-server 3.80.93.162:9092
+Run Jupyter notebook
+	create KafkaProducer.ipynb and KafkaConsumer.ipynb file
+After completing the Jupyter Notebook part, now we move to EC2.
+	Create s3 bucket 
+	Create IAM user to genereate access key and secret key
+	IAM > Users > Give name > check Attach policies directly > AdministratorAccess > download csv file
+	Install AWS CLI from depending upon your windows/mac: https://aws.amazon.com/cli/
+	aws configure
+	provide details from above csv file
+	Back to jupyter notebook : KafkaConsumer
+	If this error persist: ImportError: cannot import name 'DEFAULT_CIPHERS' from 'urllib3.util.ssl_'
+
+	Try running sudo pip3 install awscli --ignore-installed six
+
+	Incase of botcore error: sudo pip3 install --upgrade botocore
+
+
+After successful saving of data to S3 bucket, now we go for AWS Glue Crawler 
+	Crawler entire schema from the S3 bucket so that we can directly write query on it.
+	AWS Glue > Clawers (Data Catalog) > Give name to the crawler > Next > Is your data already mapped to Glue tables? (check not yet) > Add a data source > Browse S3 > check the S3 bucket name > choose > PUT / after S3 bucket name > Subsequent crawler runs (choose as desire) default put as it is > Next > Create New IAM Role > Navigate to IAM > Click Roles > Create role > Choose Glue from AWS Service dropdown > Check Glue > Next > Give Administrator Access > Next > give name to the role > Next > Add Database > Give name to database > create database > Next > Create Crawler 
+	Now, Run the crawler
+Run Athena
+	Query data from Athena
+	Table will be displayed 
+	From 3 dots, click preview table, the data must be displayed now.
+	NOTE: if any kind of error occur saying no bucket found, then go to settings > click manage > provide S3 bucket path
+	To observe real time changes, run producer and consumer and then query at Athena it will reflect changes at real time. 
+EG: SELECT count(*) FROM "kafka-stock-market-database"."kafka_stock_market_manoj" limit 10;
